@@ -3,7 +3,18 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 
-#define TASK_QUEUE_SIZE 4
+#ifndef ABC_FIFO_TASK_QUEUE_H
+#define ABC_FIFO_TASK_QUEUE_H
+
+#endif // ABC_FIFO_TASK_QUEUE_H
+
+
+
+#ifndef TASK_QUEUE_SIZE
+  #define TASK_QUEUE_SIZE 256
+#endif
+
+
 #define TASK_SUCCESS 0
 #define TASK_FAILURE 1
 
@@ -65,9 +76,9 @@ int TASK_QUEUE_executeTask(void* data) {
        SDL_AtomicAdd(&queue->completionCount, 1); // Post-increment
      }
     } else {
-      printf("%lu: Sleeping... \n", threadId);
+      // printf("%lu: Sleeping... \n", threadId);
       SDL_SemWait(queue->semaphore);
-      printf("%lu: Waking... \n", threadId);
+      // printf("%lu: Waking... \n", threadId);
     }
   }
   printf("%li: Shutdown \n", threadId);
@@ -90,7 +101,7 @@ void TASK_QUEUE_waitForEmptyQueue(TASK_QUEUE* queue) {
 // PRE: Only the main thread pushes tasks
 void TASK_QUEUE_pushTask(TASK_QUEUE* queue, TASK task) {
   assert(queue->shutdown != true);
-  while(TASK_QUEUE_isFull(queue));
+  while(TASK_QUEUE_isFull(queue)) { };
   assert(!TASK_QUEUE_isFull(queue));
 
   queue->tasks[mask(queue->writeEntry)] = task;
@@ -128,6 +139,8 @@ void TASK_QUEUE_create(TASK_QUEUE* queue, int poolSize) {
   }
 }
 
+#endif
+
 int main(void) {
 
   // Create the queue
@@ -140,10 +153,16 @@ int main(void) {
   task.data = "Hello world";
 
   uint64_t total = 0;
-  for (uint64_t i = 0; i < 316; i++) {
+  uint32_t lastTime = SDL_GetTicks();
+
+  for (uint64_t i = 0; i < 16*1000; i++) {
     TASK_QUEUE_pushTask(&queue, task);
   }
-  SDL_Delay(20 /* seconds */ * 1000);
+  uint32_t currentTime = SDL_GetTicks();
+  SDL_Delay(10 /* seconds */ * 1000);
 
+  TASK_QUEUE_waitForEmptyQueue(&queue);
   TASK_QUEUE_close(&queue);
+  printf("%f\n", (float)(currentTime - lastTime));
 }
+
