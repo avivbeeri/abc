@@ -5,7 +5,7 @@ SOURCE  = src
 BUILD  = build
 
 all: test
-test: test.c
+test: test.c ABC_fifo.h
 	$(CC) test.c -o test -I$(SOURCE)/include -Llib -lSDL2-2.0.0 -g
 
 clean:
