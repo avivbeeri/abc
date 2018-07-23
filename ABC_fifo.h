@@ -142,9 +142,8 @@ int ABC_FIFO_executeTask(void* data) {
    int16_t originalReadEntry = SDL_AtomicGet(&queue->readEntry);
    if (mask(originalReadEntry) != mask(queue->writeEntry)) {
      if (SDL_AtomicCAS(&queue->readEntry, originalReadEntry, originalReadEntry + 1)) {
-       int16_t entryIndex = mask(originalReadEntry + 1);
        SDL_CompilerBarrier();
-       ABC_TASK task = queue->tasks[mask(entryIndex)];
+       ABC_TASK task = queue->tasks[mask(originalReadEntry)];
 
        queue->taskHandler(&task);
        SDL_AtomicAdd(&queue->completionCount, 1); // Post-increment
