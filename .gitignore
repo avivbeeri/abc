@@ -2,3 +2,5 @@
 test.dSYM/**/*
 out.txt
 test
+lib
+include
