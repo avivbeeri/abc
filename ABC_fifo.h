@@ -1,5 +1,5 @@
 /*
-  ABC_fifo.h - v0.0.9 - Public Domain
+  ABC_fifo.h - v0.0.10 - Public Domain
   Author: Aviv Beeri, 2018
 
   How To Use:
@@ -10,6 +10,7 @@
 
   Version History:
 
+  v0.0.10 - We block when closing the FIFO til all threads finish
   v0.0.9 - Initial Release, be careful
 
   License:
