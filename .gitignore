@@ -1,6 +1,8 @@
 .DS_Store 
-test.dSYM/**/*
+*.dSYM/**/*
 out.txt
 test
+test-bson
+test-fifo
 lib
 include
