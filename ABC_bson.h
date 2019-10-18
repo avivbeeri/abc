@@ -231,7 +231,8 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
         if (node->elementType == ABC_BSON_TYPE_DOCUMENT ||
             node->elementType == ABC_BSON_TYPE_ARRAY) {
           printf("Descending into %s\n", remainder);
-          return ABC_BSON_get((ABC_BSON_DOC*)(node->data), remainder);
+          node = ABC_BSON_get((ABC_BSON_DOC*)(node->data), remainder);
+          found = true;
         } else {
           // We want to go deeper here, but the node isn't a document or array
           assert(false);
@@ -242,10 +243,11 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
         break;
       }
     }
-    // next token of path
-    prev = node;
-    node = node->next;
-    // compare the name of the element to the segment.
+
+    if (found == false) {
+      prev = node;
+      node = node->next;
+    }
   } while (found == false && node != NULL);
 
   if (found == false) {
