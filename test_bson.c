@@ -33,7 +33,14 @@ int main(void) {
   ABC_BSON_setString(&doc, "value", "Aviv");
   printf("value: %s\n", ABC_BSON_getString(&doc, "value"));
   printType(&doc, "value");
-  printType(&doc, "value.aviv");
+
+  ABC_BSON_setNull(&doc, "value");
+  ABC_BSON_setDocument(&doc, "value");
+  ABC_BSON_DOC* sub = ABC_BSON_getDocument(&doc, "value");
+  printType(&doc, "value");
+
+  ABC_BSON_setInt64(sub, "test", 91);
+  printf("value: %" PRId64 "\n", ABC_BSON_getInt64(&doc, "value.test"));
 
   // ABC_BSON_setDouble(&doc, "data.path", (double) 5);
   // ABC_BSON_TYPE type = ABC_BSON_readString(file, "data.path");
