@@ -9,18 +9,25 @@ int main(void) {
 
   ABC_BSON_DOC doc;
   ABC_BSON_DOC_init(&doc);
-
-  // ABC_BSON_TYPE type = ABC_BSON_getType(&doc, "data.path");
-  // printf("%s\n", ABC_BSON_printType(type));
-  // based on the type, we can extract it.
   ABC_BSON_setDouble(&doc, "value.0", 42);
-  ABC_BSON_setDouble(&doc, "value.1", 84);
+
+  // based on the type, we can extract it.
+
+  ABC_BSON_TYPE type = ABC_BSON_getType(&doc, "value");
+  printf("type: %s\n", ABC_BSON_printType(type));
+
+  ABC_BSON_setBoolean(&doc, "value.1", false);
   double d = ABC_BSON_getDouble(&doc, "value.0");
-  printf("%f\n", d);
-  d = ABC_BSON_getDouble(&doc, "value.1");
-  printf("%f\n", d);
+  printf("value.0: %f\n", d);
+  bool b = ABC_BSON_getBoolean(&doc, "value.1");
+  printf("value.1: %s\n", b ? "true" : "false");
+
+  type = ABC_BSON_getType(&doc, "value.1");
+  printf("type: %s\n", ABC_BSON_printType(type));
   // ABC_BSON_setDouble(&doc, "data.path", (double) 5);
   // ABC_BSON_TYPE type = ABC_BSON_readString(file, "data.path");
+
+  ABC_BSON_DOC_free(&doc);
 
   return 0;
 }

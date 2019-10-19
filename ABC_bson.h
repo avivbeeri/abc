@@ -133,10 +133,10 @@ struct ABC_BSON_DOC_t;
 typedef struct ABC_BSON_ELEMENT_t {
   ABC_BSON_TYPE elementType;
   size_t size;
-  char* elementName;
   struct ABC_BSON_DOC_t* doc;
   struct ABC_BSON_ELEMENT_t* prev;
   struct ABC_BSON_ELEMENT_t* next;
+  char* elementName;
   void* data;
   char space[];
 } ABC_BSON_ELEMENT;
@@ -150,7 +150,6 @@ typedef enum {
   ABC_BSON_RESULT_FAILURE
 } ABC_BSON_RESULT;
 
-
 bool isnumber (const char *c) {
   while (*c) {
   	if (*c<'0' || *c>'9') return false;
@@ -163,39 +162,66 @@ void ABC_BSON_DOC_init(ABC_BSON_DOC* doc) {
   doc->head = NULL;
 }
 
-/*
-ABC_BSON_RESULT ABC_BSON_DOC_init(ABC_BSON_DOC* doc) {
-  ABC_BSON_ELEMENT* el = malloc(sizeof(ABC_BSON_ELEMENT));
-  doc->head = ;
-  return ;
-}
-*/
-
 ABC_BSON_ELEMENT* ABC_BSON_ELEMENT_init(ABC_BSON_DOC* doc, char* segment) {
-    ABC_BSON_ELEMENT* element = (ABC_BSON_ELEMENT*)malloc(sizeof(ABC_BSON_ELEMENT) + (strlen(segment)+1));
+    size_t nameSize = strlen(segment);
+    ABC_BSON_ELEMENT* element = (ABC_BSON_ELEMENT*)malloc(sizeof(ABC_BSON_ELEMENT) + (nameSize+1));
     element->next = NULL;
     element->prev = NULL;
     element->doc = doc;
     element->elementName = element->space;
-    strcpy(element->elementName, segment);
+    strncpy(element->elementName, segment, nameSize);
+    element->elementName[nameSize] = '\0';
     element->data = NULL;
-    element->elementType = ABC_BSON_TYPE_UNDEFINED;
+    element->elementType = ABC_BSON_TYPE_NONE;
     return element;
 }
 
+// Forward declaring this
+void ABC_BSON_DOC_free(ABC_BSON_DOC* doc);
+
 void* ABC_BSON_ELEMENT_realloc(ABC_BSON_ELEMENT* element, size_t nameSize, size_t dataSize) {
-  ABC_BSON_ELEMENT* newPtr = realloc(element, sizeof(ABC_BSON_ELEMENT) + nameSize + dataSize);
-  newPtr->data = newPtr->space + nameSize;
+
+  if (element->elementType == ABC_BSON_TYPE_DOCUMENT ||
+      element->elementType == ABC_BSON_TYPE_ARRAY) {
+    // Free the contained data
+    ABC_BSON_DOC_free((ABC_BSON_DOC*)element->data);
+  }
+
+  ABC_BSON_ELEMENT* newPtr = realloc(element, sizeof(ABC_BSON_ELEMENT) + nameSize * sizeof(char) + dataSize);
+  newPtr->elementName = newPtr->space;
+  newPtr->data = dataSize > 0 ? (void*)&newPtr->space + nameSize : NULL;
   if (newPtr->prev != NULL) {
     newPtr->prev->next = newPtr;
   } else {
     newPtr->doc->head = newPtr;
   }
+  if (newPtr->next) {
+    newPtr->next->prev = newPtr;
+  }
   return newPtr;
 }
 
+void ABC_BSON_ELEMENT_free(ABC_BSON_ELEMENT* element) {
+  if (element->elementType == ABC_BSON_TYPE_DOCUMENT ||
+      element->elementType == ABC_BSON_TYPE_ARRAY) {
+    ABC_BSON_DOC_free((ABC_BSON_DOC*)element->data);
+    element = ABC_BSON_ELEMENT_realloc(element, 0, 0);
+  }
+  free(element);
+}
+
+void ABC_BSON_DOC_free(ABC_BSON_DOC* doc) {
+  ABC_BSON_ELEMENT* node = doc->head;
+  ABC_BSON_ELEMENT* next = NULL;
+  while (node != NULL) {
+    next = node->next;
+    ABC_BSON_ELEMENT_free(node);
+    node = next;
+  }
+  doc->head = NULL;
+}
+
 ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
-  printf("Getting: %s\n", path);
   ABC_BSON_ELEMENT* prev = NULL;
   ABC_BSON_ELEMENT* node = doc->head;
   char* delim = strchr(path, '.');
@@ -220,17 +246,19 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
       doc->head = node;
     }
 
-    if (strcmp(segment, node->elementName) == 0) {
+    if (strncmp(segment, node->elementName, strlen(segment)) == 0) {
       // This key matches the element
       if (remainder != NULL) {
         // We want to go another layer down.
-        if (node->elementType == ABC_BSON_TYPE_UNDEFINED) {
-          node->elementType = isnumber(remainder) ? ABC_BSON_TYPE_ARRAY : ABC_BSON_TYPE_DOCUMENT;
+        if (node->elementType == ABC_BSON_TYPE_NONE ||
+            node->elementType == ABC_BSON_TYPE_NULL ||
+            node->elementType == ABC_BSON_TYPE_UNDEFINED) {
           node = ABC_BSON_ELEMENT_realloc(node, strlen(segment)+1, sizeof(ABC_BSON_DOC));
+          ((ABC_BSON_DOC*)node->data)->head = NULL;
+          node->elementType = isnumber(remainder) ? ABC_BSON_TYPE_ARRAY : ABC_BSON_TYPE_DOCUMENT;
         }
         if (node->elementType == ABC_BSON_TYPE_DOCUMENT ||
             node->elementType == ABC_BSON_TYPE_ARRAY) {
-          printf("Descending into %s\n", remainder);
           node = ABC_BSON_get((ABC_BSON_DOC*)(node->data), remainder);
           found = true;
         } else {
@@ -238,9 +266,7 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
           assert(false);
         }
       } else {
-        printf("found %s\n", segment);
         found = true;
-        break;
       }
     }
 
@@ -252,6 +278,7 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
 
   if (found == false) {
     ABC_BSON_ELEMENT* element = ABC_BSON_ELEMENT_init(doc, segment);
+    element->elementType = ABC_BSON_TYPE_UNDEFINED;
     element->prev = prev;
     if (prev != NULL) {
       prev->next = element;
@@ -267,6 +294,7 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
   return node;
 }
 
+
 ABC_BSON_TYPE ABC_BSON_getType(ABC_BSON_DOC* doc, char* path) {
   ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
   if (element == NULL) {
@@ -275,32 +303,70 @@ ABC_BSON_TYPE ABC_BSON_getType(ABC_BSON_DOC* doc, char* path) {
   return element->elementType;
 }
 
-
-void ABC_BSON_setDouble(ABC_BSON_DOC* doc, char* path, double value) {
-  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  if (element->elementType == ABC_BSON_TYPE_UNDEFINED) {
-    // TODO: This doesn't work for nested documents
-    size_t len = strlen(path) + 1;
-    element = ABC_BSON_ELEMENT_realloc(element, len, 8);
-    element->elementType = ABC_BSON_TYPE_DOUBLE;
-  } else if (element->elementType != ABC_BSON_TYPE_DOUBLE) {
-    // TODO: reallocate size of element
-    element->elementType = ABC_BSON_TYPE_DOUBLE;
-  }
-  *(double*)(element->data) = value;
-}
-
 char* ABC_BSON_printType(ABC_BSON_TYPE type) {
   switch (type) {
-    default: return "undefined";
+    case ABC_BSON_TYPE_STRING: return "string";
+    case ABC_BSON_TYPE_BOOLEAN: return "boolean";
+    case ABC_BSON_TYPE_INT_32: return "int32";
+    case ABC_BSON_TYPE_INT_64: return "int64";
+    case ABC_BSON_TYPE_DOUBLE: return "double";
+    case ABC_BSON_TYPE_DOCUMENT: return "document";
+    case ABC_BSON_TYPE_ARRAY: return "array";
+    case ABC_BSON_TYPE_NULL: return "null";
+    case ABC_BSON_TYPE_UNDEFINED: return "undefined";
+    case ABC_BSON_TYPE_NONE:
+    default: return "none";
   }
 }
 
-double ABC_BSON_getDouble(ABC_BSON_DOC* doc, char* path) {
+// -----------------------------------------------------------------
+// Generate simple type getters and setters
+// -----------------------------------------------------------------
+
+#define GENERATE_ABC_BSON_SET(NAME, DATA_TYPE, TYPE_ENUM) \
+  void ABC_BSON_set##NAME(ABC_BSON_DOC* doc, char* path, DATA_TYPE value) { \
+    ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path); \
+    if (element->elementType != TYPE_ENUM) { \
+      size_t len = strlen(path) + 1; \
+      element = ABC_BSON_ELEMENT_realloc(element, len, sizeof(DATA_TYPE)); \
+      element->elementType = TYPE_ENUM; \
+    } \
+    *(DATA_TYPE*)(element->data) = value; \
+  }
+
+void ABC_BSON_setUndefined(ABC_BSON_DOC* doc, char* path) {
   ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  assert(element != NULL);
-  assert(element->elementType == ABC_BSON_TYPE_DOUBLE);
-  return *(double*)(element->data);
+  if (element->elementType != ABC_BSON_TYPE_UNDEFINED) {
+    size_t len = strlen(path) + 1;
+    element = ABC_BSON_ELEMENT_realloc(element, len, 0);
+    element->elementType = ABC_BSON_TYPE_UNDEFINED;
+  }
 }
+
+void ABC_BSON_setNull(ABC_BSON_DOC* doc, char* path) {
+  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
+  if (element->elementType != ABC_BSON_TYPE_NULL) {
+    size_t len = strlen(path) + 1;
+    element = ABC_BSON_ELEMENT_realloc(element, len, 0);
+    element->elementType = ABC_BSON_TYPE_NULL;
+  }
+}
+
+#define GENERATE_ABC_BSON_GET(NAME, DATA_TYPE, TYPE_ENUM) \
+DATA_TYPE ABC_BSON_get##NAME(ABC_BSON_DOC* doc, char* path) { \
+  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path); \
+  assert(element != NULL); \
+  assert(element->elementType == TYPE_ENUM); \
+  return *(DATA_TYPE*)(element->data); \
+}
+
+GENERATE_ABC_BSON_SET(Boolean, bool, ABC_BSON_TYPE_BOOLEAN)
+GENERATE_ABC_BSON_SET(Double, double, ABC_BSON_TYPE_DOUBLE)
+
+GENERATE_ABC_BSON_GET(Boolean, bool, ABC_BSON_TYPE_BOOLEAN)
+GENERATE_ABC_BSON_GET(Double, double, ABC_BSON_TYPE_DOUBLE)
+
+#undef GENERATE_ABC_BSON_GET
+#undef GENERATE_ABC_BSON_SET
 
 #endif // ABC_BSON_IMPL
