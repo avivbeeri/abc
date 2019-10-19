@@ -188,6 +188,9 @@ void* ABC_BSON_ELEMENT_realloc(ABC_BSON_ELEMENT* element, size_t nameSize, size_
   }
 
   ABC_BSON_ELEMENT* newPtr = realloc(element, sizeof(ABC_BSON_ELEMENT) + nameSize * sizeof(char) + dataSize);
+  // Because of the reallocation, we have to re-evaluate all
+  // the pointers which may reference this element.
+  // TODO: tidy this up with an intermediate redirect?
   newPtr->elementName = newPtr->space;
   newPtr->data = dataSize > 0 ? (void*)&newPtr->space + nameSize : NULL;
   if (newPtr->prev != NULL) {
@@ -240,6 +243,8 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
     needFree = true;
   }
 
+  bool error = false;
+
   do {
     if (node == NULL) {
       node = ABC_BSON_ELEMENT_init(doc, segment);
@@ -263,7 +268,8 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
           found = true;
         } else {
           // We want to go deeper here, but the node isn't a document or array
-          assert(false);
+          error = true;
+          break;
         }
       } else {
         found = true;
@@ -276,7 +282,7 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
     }
   } while (found == false && node != NULL);
 
-  if (found == false) {
+  if (error == false && found == false) {
     ABC_BSON_ELEMENT* element = ABC_BSON_ELEMENT_init(doc, segment);
     element->elementType = ABC_BSON_TYPE_UNDEFINED;
     element->prev = prev;
@@ -291,14 +297,14 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
   if (needFree) {
     free(segment);
   }
-  return node;
+  return error ? NULL : node;
 }
 
 
 ABC_BSON_TYPE ABC_BSON_getType(ABC_BSON_DOC* doc, char* path) {
   ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
   if (element == NULL) {
-    return ABC_BSON_TYPE_UNDEFINED;
+    return ABC_BSON_TYPE_NONE;
   }
   return element->elementType;
 }
@@ -323,6 +329,17 @@ char* ABC_BSON_printType(ABC_BSON_TYPE type) {
 // Generate simple type getters and setters
 // -----------------------------------------------------------------
 
+#define GENERATE_ABC_BSON_SET_EMPTY(NAME, TYPE_ENUM) \
+  void ABC_BSON_set##NAME(ABC_BSON_DOC* doc, char* path) { \
+    ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path); \
+    if (element->elementType != TYPE_ENUM) { \
+      size_t len = strlen(path) + 1; \
+      element = ABC_BSON_ELEMENT_realloc(element, len, 0); \
+      element->elementType = TYPE_ENUM; \
+    } \
+  }
+
+
 #define GENERATE_ABC_BSON_SET(NAME, DATA_TYPE, TYPE_ENUM) \
   void ABC_BSON_set##NAME(ABC_BSON_DOC* doc, char* path, DATA_TYPE value) { \
     ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path); \
@@ -333,24 +350,6 @@ char* ABC_BSON_printType(ABC_BSON_TYPE type) {
     } \
     *(DATA_TYPE*)(element->data) = value; \
   }
-
-void ABC_BSON_setUndefined(ABC_BSON_DOC* doc, char* path) {
-  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  if (element->elementType != ABC_BSON_TYPE_UNDEFINED) {
-    size_t len = strlen(path) + 1;
-    element = ABC_BSON_ELEMENT_realloc(element, len, 0);
-    element->elementType = ABC_BSON_TYPE_UNDEFINED;
-  }
-}
-
-void ABC_BSON_setNull(ABC_BSON_DOC* doc, char* path) {
-  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  if (element->elementType != ABC_BSON_TYPE_NULL) {
-    size_t len = strlen(path) + 1;
-    element = ABC_BSON_ELEMENT_realloc(element, len, 0);
-    element->elementType = ABC_BSON_TYPE_NULL;
-  }
-}
 
 #define GENERATE_ABC_BSON_GET(NAME, DATA_TYPE, TYPE_ENUM) \
 DATA_TYPE ABC_BSON_get##NAME(ABC_BSON_DOC* doc, char* path) { \
@@ -366,7 +365,29 @@ GENERATE_ABC_BSON_SET(Double, double, ABC_BSON_TYPE_DOUBLE)
 GENERATE_ABC_BSON_GET(Boolean, bool, ABC_BSON_TYPE_BOOLEAN)
 GENERATE_ABC_BSON_GET(Double, double, ABC_BSON_TYPE_DOUBLE)
 
+GENERATE_ABC_BSON_SET_EMPTY(Null, ABC_BSON_TYPE_NULL)
+GENERATE_ABC_BSON_SET_EMPTY(Undefined, ABC_BSON_TYPE_UNDEFINED)
+
 #undef GENERATE_ABC_BSON_GET
 #undef GENERATE_ABC_BSON_SET
+#undef GENERATE_ABC_BSON_SET_EMPTY
+
+// Pass a c-string in, null terminated
+void ABC_BSON_setString(ABC_BSON_DOC* doc, char* path, char* value) {
+  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
+  if (element->elementType != ABC_BSON_TYPE_STRING) {
+    size_t len = strlen(path) + 1;
+    size_t valLength = strlen(value) + 1;
+    element = ABC_BSON_ELEMENT_realloc(element, len, sizeof(char) * valLength);
+    element->elementType = ABC_BSON_TYPE_STRING;
+  }
+  strcpy(element->data, value);
+}
+char* ABC_BSON_getString(ABC_BSON_DOC* doc, char* path) {
+  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
+  assert(element != NULL);
+  assert(element->elementType == ABC_BSON_TYPE_STRING);
+  return element->data;
+}
 
 #endif // ABC_BSON_IMPL

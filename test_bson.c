@@ -3,6 +3,10 @@
 #define ABC_BSON_IMPL
 #include "ABC_bson.h"
 
+void printType(ABC_BSON_DOC* doc, char* path) {
+  ABC_BSON_TYPE type = ABC_BSON_getType(doc, path);
+  printf("%s: %s\n", path, ABC_BSON_printType(type));
+}
 // Example program
 
 int main(void) {
@@ -21,9 +25,16 @@ int main(void) {
   printf("value.0: %f\n", d);
   bool b = ABC_BSON_getBoolean(&doc, "value.1");
   printf("value.1: %s\n", b ? "true" : "false");
+  ABC_BSON_setNull(&doc, "value.2");
+  printType(&doc, "value");
+  printType(&doc, "value.0");
+  printType(&doc, "value.1");
+  printType(&doc, "value.2");
+  ABC_BSON_setString(&doc, "value", "Aviv");
+  printf("value: %s\n", ABC_BSON_getString(&doc, "value"));
+  printType(&doc, "value");
+  printType(&doc, "value.aviv");
 
-  type = ABC_BSON_getType(&doc, "value.1");
-  printf("type: %s\n", ABC_BSON_printType(type));
   // ABC_BSON_setDouble(&doc, "data.path", (double) 5);
   // ABC_BSON_TYPE type = ABC_BSON_readString(file, "data.path");
 
