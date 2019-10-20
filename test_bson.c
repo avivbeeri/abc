@@ -25,22 +25,22 @@ int main(void) {
   printf("value.0: %f\n", d);
   bool b = ABC_BSON_getBoolean(&doc, "value.1");
   printf("value.1: %s\n", b ? "true" : "false");
-  ABC_BSON_setNull(&doc, "value.2");
+  ABC_BSON_setNull(&doc, "value.2.aviv");
   printType(&doc, "value");
   printType(&doc, "value.0");
   printType(&doc, "value.1");
-  printType(&doc, "value.2");
+  printType(&doc, "value.2.aviv");
   ABC_BSON_setString(&doc, "value", "Aviv");
   printf("value: %s\n", ABC_BSON_getString(&doc, "value"));
   printType(&doc, "value");
 
   ABC_BSON_setNull(&doc, "value");
-  ABC_BSON_setDocument(&doc, "value");
-  ABC_BSON_DOC* sub = ABC_BSON_getDocument(&doc, "value");
+  ABC_BSON_setArray(&doc, "value");
+  ABC_BSON_DOC* sub = ABC_BSON_getArray(&doc, "value");
   printType(&doc, "value");
 
-  ABC_BSON_setInt64(sub, "test", 91);
-  printf("value: %" PRId64 "\n", ABC_BSON_getInt64(&doc, "value.test"));
+  ABC_BSON_setInt64(sub, "42", 91);
+  printf("value.42: %" PRId64 "\n", ABC_BSON_getInt64(&doc, "value.42"));
 
   // ABC_BSON_setDouble(&doc, "data.path", (double) 5);
   // ABC_BSON_TYPE type = ABC_BSON_readString(file, "data.path");

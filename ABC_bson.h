@@ -292,6 +292,13 @@ ABC_BSON_ELEMENT* ABC_BSON_get(ABC_BSON_DOC* doc, char* path) {
       doc->head = element;
     }
     node = element;
+    if (remainder != NULL) {
+      node = ABC_BSON_ELEMENT_realloc(node, strlen(segment)+1, sizeof(ABC_BSON_DOC));
+      ((ABC_BSON_DOC*)node->data)->head = NULL;
+      node->elementType = isnumber(remainder) ? ABC_BSON_TYPE_ARRAY : ABC_BSON_TYPE_DOCUMENT;
+      node = ABC_BSON_get((ABC_BSON_DOC*)(node->data), remainder);
+      error = (node == NULL);
+    }
   }
 
   if (needFree) {
@@ -369,6 +376,14 @@ DATA_TYPE ABC_BSON_get##NAME(ABC_BSON_DOC* doc, char* path) { \
   return *(DATA_TYPE*)(element->data); \
 }
 
+#define GENERATE_ABC_BSON_GET_PTR(NAME, DATA_TYPE, TYPE_ENUM) \
+DATA_TYPE* ABC_BSON_get##NAME(ABC_BSON_DOC* doc, char* path) { \
+  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path); \
+  assert(element != NULL); \
+  assert(element->elementType == TYPE_ENUM); \
+  return (element->data); \
+}
+
 GENERATE_ABC_BSON_SET(Boolean, bool, ABC_BSON_TYPE_BOOLEAN)
 GENERATE_ABC_BSON_SET(Double, double, ABC_BSON_TYPE_DOUBLE)
 GENERATE_ABC_BSON_SET(Int32, ABC_INT32, ABC_BSON_TYPE_INT_32)
@@ -381,14 +396,20 @@ GENERATE_ABC_BSON_GET(Int32, ABC_INT32, ABC_BSON_TYPE_INT_32)
 GENERATE_ABC_BSON_GET(Int64, ABC_INT64, ABC_BSON_TYPE_INT_64)
 GENERATE_ABC_BSON_GET(DateTime, ABC_INT64, ABC_BSON_TYPE_DATETIME)
 
+GENERATE_ABC_BSON_GET_PTR(String, char, ABC_BSON_TYPE_STRING)
+GENERATE_ABC_BSON_GET_PTR(Document, ABC_BSON_DOC, ABC_BSON_TYPE_DOCUMENT)
+GENERATE_ABC_BSON_GET_PTR(Array, ABC_BSON_DOC, ABC_BSON_TYPE_ARRAY)
+
 GENERATE_ABC_BSON_SET_EMPTY(Null, ABC_BSON_TYPE_NULL)
 GENERATE_ABC_BSON_SET_EMPTY(Undefined, ABC_BSON_TYPE_UNDEFINED)
 GENERATE_ABC_BSON_SET_CONTAINER(Document, ABC_BSON_TYPE_DOCUMENT)
 GENERATE_ABC_BSON_SET_CONTAINER(Array, ABC_BSON_TYPE_ARRAY)
 
 #undef GENERATE_ABC_BSON_GET
+#undef GENERATE_ABC_BSON_GET_PTR
 #undef GENERATE_ABC_BSON_SET
 #undef GENERATE_ABC_BSON_SET_EMPTY
+#undef GENERATE_ABC_BSON_SET_CONTAINER
 
 // Pass a c-string in, null terminated
 void ABC_BSON_setString(ABC_BSON_DOC* doc, char* path, char* value) {
@@ -400,26 +421,6 @@ void ABC_BSON_setString(ABC_BSON_DOC* doc, char* path, char* value) {
     element->elementType = ABC_BSON_TYPE_STRING;
   }
   strcpy(element->data, value);
-}
-char* ABC_BSON_getString(ABC_BSON_DOC* doc, char* path) {
-  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  assert(element != NULL);
-  assert(element->elementType == ABC_BSON_TYPE_STRING);
-  return element->data;
-}
-
-ABC_BSON_DOC* ABC_BSON_getArray(ABC_BSON_DOC* doc, char* path) {
-  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  assert(element != NULL);
-  assert(element->elementType == ABC_BSON_TYPE_ARRAY);
-  return element->data;
-}
-
-ABC_BSON_DOC* ABC_BSON_getDocument(ABC_BSON_DOC* doc, char* path) {
-  ABC_BSON_ELEMENT* element = ABC_BSON_get(doc, path);
-  assert(element != NULL);
-  assert(element->elementType == ABC_BSON_TYPE_DOCUMENT);
-  return element->data;
 }
 
 #endif // ABC_BSON_IMPL
