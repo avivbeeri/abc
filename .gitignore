@@ -1,6 +1,7 @@
 .DS_Store 
 test.dSYM/**/*
 out.txt
+uri-test
 test
 lib
 include
