@@ -24,6 +24,13 @@ typedef struct {
   char* port;
   size_t portLen;
 
+  char* path;
+  size_t pathLen;
+  char* query;
+  size_t queryLen;
+  char* fragment;
+  size_t fragmentLen;
+
 } ABC_URI;
 
 void printUri(ABC_URI* uri) {
@@ -31,12 +38,14 @@ void printUri(ABC_URI* uri) {
   if (uri->scheme != NULL) {
     printf("Scheme    = %.*s\n", uri->schemeLen, uri->scheme);
   }
+  /*
   if (uri->authority != NULL) {
     printf("Authority = %.*s\n", uri->authorityLen, uri->authority);
   }
   if (uri->cred != NULL) {
     printf("Cred      = %.*s\n", uri->credLen, uri->cred);
   }
+  */
   if (uri->user != NULL) {
     printf("User      = %.*s\n", uri->userLen, uri->user);
   }
@@ -50,6 +59,15 @@ void printUri(ABC_URI* uri) {
     printf("port      = %.*s\n", uri->portLen, uri->port);
   }
 
+  if (uri->path != NULL) {
+    printf("path      = %.*s\n", uri->pathLen, uri->path);
+  }
+  if (uri->query != NULL) {
+    printf("query     = %.*s\n", uri->queryLen, uri->query);
+  }
+  if (uri->fragment != NULL) {
+    printf("fragment  = %.*s\n", uri->fragmentLen, uri->fragment);
+  }
 
   printf("\n");
 //   printf("%.*s\n", uri->len, uri->scheme + uri->schemeLen);
@@ -165,7 +183,13 @@ ABC_URI parse(char* uri) {
         result.hostLen = result.authorityLen;
       }
     } else if (countOf(result.authority, "[", result.authorityLen) > 0 &&
-        countOf(result.authority, "]:", result.authorityLen) > 0) {
+        indexOfN(result.authority, "]:", result.authorityLen) != -1) {
+      str = result.authority;
+      index = indexOfN(str, "]", result.authorityLen);
+      result.host = str + 1;
+      result.hostLen = index;
+      result.port = str + index + 1;
+      result.portLen = result.authorityLen - (index + 1);
       // ipV6 with host
     } else {
       // no credentials
@@ -175,10 +199,43 @@ ABC_URI parse(char* uri) {
     str = result.authority + result.authorityLen;
   } else {
     index = indexOf(uri, ":");
+    str = uri;
     if (index != -1) {
       result.scheme = uri;
       result.schemeLen = index;
+      str = result.scheme + index + 1;
     }
+  }
+  // parse the path;
+  result.path = str;
+  result.pathLen = result.len - (uri - str);
+
+  size_t queryIndex = indexOfN(result.path, "?", result.pathLen);
+  size_t fragmentIndex = indexOfN(result.path, "#", result.pathLen);
+    if (queryIndex != -1 && fragmentIndex == -1) {
+
+    result.query = result.path + queryIndex + 1;
+    result.queryLen = result.pathLen - queryIndex;
+
+    result.pathLen = queryIndex;
+  } else if (queryIndex == -1 && fragmentIndex != -1) {
+
+    result.fragment = result.path + fragmentIndex + 1;
+    result.fragmentLen = result.pathLen - fragmentIndex;
+
+    result.pathLen = fragmentIndex;
+  } else if (queryIndex != -1 &&
+      fragmentIndex != -1 &&
+      queryIndex < fragmentIndex) {
+
+
+    result.query = result.path + queryIndex + 1;
+    result.queryLen = queryIndex;
+
+    result.fragment = result.query + result.queryLen + 1;
+    result.fragmentLen = result.pathLen - queryIndex;
+
+    result.pathLen = queryIndex;
   }
   printUri(&result);
   return result;
