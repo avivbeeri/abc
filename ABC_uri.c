@@ -1,13 +1,51 @@
 #include <stdio.h>
 #include <string.h>
 typedef struct {
-  const char* uri;
+  char* uri;
   size_t len;
 
-  const char* scheme;
+  char* scheme;
   size_t schemeLen;
 
+  char* authority;
+  size_t authorityLen;
+
+  char* cred;
+  size_t credLen;
+
+  char* user;
+  size_t userLen;
+
+  char* pass;
+  size_t passLen;
+
+  char* domain;
+  size_t domainLen;
+
 } ABC_URI;
+
+void printUri(ABC_URI* uri) {
+  printf("URI       = %s\n", uri->uri);
+  if (uri->scheme != NULL) {
+    printf("Scheme    = %.*s\n", uri->schemeLen, uri->scheme);
+  }
+  if (uri->authority != NULL) {
+    printf("Authority = %.*s\n", uri->authorityLen, uri->authority);
+  }
+  if (uri->cred != NULL) {
+    printf("Cred      = %.*s\n", uri->credLen, uri->cred);
+  }
+  if (uri->user != NULL) {
+    printf("User      = %.*s\n", uri->userLen, uri->user);
+  }
+  if (uri->pass != NULL) {
+    printf("pass      = %.*s\n", uri->passLen, uri->pass);
+  }
+
+
+  printf("\n");
+//   printf("%.*s\n", uri->len, uri->scheme + uri->schemeLen);
+}
 
 size_t indexOf(char* str, char* substr) {
   char* c = strstr(str, substr);
@@ -15,7 +53,16 @@ size_t indexOf(char* str, char* substr) {
     return -1;
   }
   return c - str;
-
+}
+size_t indexOfN(char* str, char* substr, size_t len) {
+  char* c = strstr(str, substr);
+  if (c == NULL) {
+    return -1;
+  }
+  if (c - str > len) {
+    return -1;
+  }
+  return c - str;
 }
 
 size_t countOf(char* url, char* str, size_t len) {
@@ -35,22 +82,57 @@ size_t countOf(char* url, char* str, size_t len) {
 
 ABC_URI parse(char* uri) {
   ABC_URI result;
-  char* start = uri;
+  memset(&result, 0, sizeof(ABC_URI));
+  char* str = uri;
   result.uri = uri;
   result.len = strlen(uri);
 
   size_t index = 0;
+  size_t strIndex = 0;
 
   index = indexOf(uri, "//");
   if (index >= 0 && countOf(uri, ":", index) == 1) {
     result.scheme = uri;
     result.schemeLen = index - 1;
+    strIndex = index + 2;
 
-    start = uri + index;
+    str = uri + strIndex;
+    // parse the domain
+    index = indexOf(str, "/");
+    result.authority = str;
+    if (index == -1) {
+      result.authorityLen = result.len - strIndex;
+    } else {
+      result.authorityLen = index;
+    }
 
+    // check for credentials and port
+    if (countOf(result.authority, "@", result.authorityLen) > 0) {
+      result.cred = result.authority;
+      index = indexOf(str, "@");
+      if (index == -1) {
+        result.credLen = result.len - strIndex;
+      } else {
+        result.credLen = index;
+      }
+      result.user = result.cred;
+      result.userLen = result.credLen;
+      index = indexOfN(result.user, ".", result.credLen);
+      if (index != -1) {
+        //
+      } else {
+        index = indexOfN(result.user, ":", result.credLen);
+        if (index != -1) {
+          result.userLen = index;
+          result.pass = result.user + index + 1;
+          result.passLen = result.credLen - (index + 1);
+        }
+      }
 
+    } else {
+      // no credentials
 
-
+    }
   } else {
     index = indexOf(uri, ":");
     if (index != -1) {
@@ -58,22 +140,27 @@ ABC_URI parse(char* uri) {
       result.schemeLen = index;
     }
   }
+  printUri(&result);
   return result;
 }
 
-void printUri(ABC_URI* uri) {
-  printf("URI      = %s\n", uri->uri);
-  printf("Scheme   = %.*s\n", uri->schemeLen, uri->scheme);
-  printf("%.*s\n", uri->len, uri->scheme + uri->schemeLen);
-}
 
 int main() {
   ABC_URI result;
 
-  result = parse("foo://example.com:8042/over/there?name=ferret#nose");
-  printUri(&result);
-  result = parse("tel:+1-816-555-1212");
-  printUri(&result);
   result = parse("gemini://test:8000");
-  printUri(&result);
+  parse("foo://example.com:8042/over/there?name=ferret#nose");
+  parse("urn:example:animal:ferret:nose");
+  parse("jdbc:mysql://test_user:ouupppssss@localhost:3306/sakila?profileSQL=true");
+  parse("ftp://ftp.is.co.za/rfc/rfc1808.txt");
+  parse("http://www.ietf.org/rfc/rfc2396.txt#header1");
+  parse("ldap://[2001:db8::7]/c=GB?objectClass=one&objectClass=two");
+  parse("mailto:John.Doe@example.com");
+  parse("news:comp.infosystems.www.servers.unix");
+  parse("tel:+1-816-555-1212");
+  parse("telnet://192.0.2.16:80/");
+  parse("urn:oasis:names:specification:docbook:dtd:xml:4.1.2");
+  parse("ssh://alice@example.com");
+  parse("https://bob:pass@example.com/place");
+  parse("http://example.com/?a=1&b=2+2&c=3&c=4&d=\%65\%6e\%63\%6F\%64\%65\%64");
 }
