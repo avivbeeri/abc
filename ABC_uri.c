@@ -19,8 +19,10 @@ typedef struct {
   char* pass;
   size_t passLen;
 
-  char* domain;
-  size_t domainLen;
+  char* host;
+  size_t hostLen;
+  char* port;
+  size_t portLen;
 
 } ABC_URI;
 
@@ -40,6 +42,12 @@ void printUri(ABC_URI* uri) {
   }
   if (uri->pass != NULL) {
     printf("pass      = %.*s\n", uri->passLen, uri->pass);
+  }
+  if (uri->host != NULL) {
+    printf("host      = %.*s\n", uri->hostLen, uri->host);
+  }
+  if (uri->port != NULL) {
+    printf("port      = %.*s\n", uri->portLen, uri->port);
   }
 
 
@@ -119,7 +127,9 @@ ABC_URI parse(char* uri) {
       result.userLen = result.credLen;
       index = indexOfN(result.user, ".", result.credLen);
       if (index != -1) {
-        //
+        result.userLen = index;
+        result.pass = result.user + index + 1;
+        result.passLen = result.credLen - (index + 1);
       } else {
         index = indexOfN(result.user, ":", result.credLen);
         if (index != -1) {
@@ -128,11 +138,41 @@ ABC_URI parse(char* uri) {
           result.passLen = result.credLen - (index + 1);
         }
       }
-
+      str = result.cred + result.credLen + 1;
+      index = indexOf(str, "/");
+      result.host = str;
+      if (index == -1) {
+        result.hostLen = result.authorityLen - result.credLen;
+      } else {
+        result.hostLen = index;
+      }
+      index = indexOfN(str, ":", result.hostLen);
+      if (index != -1) {
+        result.hostLen = index;
+      }
+    } else if (countOf(result.authority, ":", result.authorityLen) > 0 &&
+        countOf(result.authority, "[", result.authorityLen) == 0 &&
+        countOf(result.authority, "]", result.authorityLen) == 0) {
+      str = result.authority;
+      index = indexOfN(str, ":", result.authorityLen);
+      if (index != -1) {
+        result.host = str;
+        result.hostLen = index;
+        result.port = result.host + (index + 1);
+        result.portLen = result.authorityLen -  result.hostLen - 1;
+      } else {
+        result.host = str;
+        result.hostLen = result.authorityLen;
+      }
+    } else if (countOf(result.authority, "[", result.authorityLen) > 0 &&
+        countOf(result.authority, "]:", result.authorityLen) > 0) {
+      // ipV6 with host
     } else {
       // no credentials
-
+      result.host = result.authority;
+      result.hostLen = result.authorityLen;
     }
+    str = result.authority + result.authorityLen;
   } else {
     index = indexOf(uri, ":");
     if (index != -1) {
