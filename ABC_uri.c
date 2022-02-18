@@ -13,7 +13,14 @@
 typedef struct ABC_URI_t ABC_URI;
 void ABC_URI_print(ABC_URI* uri);
 ABC_URI parse(char* uri);
+
 int ABC_URI_scheme(ABC_URI* uri, char* buf, size_t* len);
+int ABC_URI_user(ABC_URI* uri, char* buf, size_t* len);
+int ABC_URI_pass(ABC_URI* uri, char* buf, size_t* len);
+int ABC_URI_host(ABC_URI* uri, char* buf, size_t* len);
+int ABC_URI_path(ABC_URI* uri, char* buf, size_t* len);
+int ABC_URI_query(ABC_URI* uri, char* buf, size_t* len);
+int ABC_URI_fragment(ABC_URI* uri, char* buf, size_t* len);
 
 /* Raw struct - don't use this */
 struct ABC_URI_t {
@@ -57,7 +64,7 @@ struct ABC_URI_t {
 
 #ifdef ABC_URI_IMPLEMENTATION
 
-void printUri(ABC_URI* uri) {
+void ABC_URI_print(ABC_URI* uri) {
   printf("URI       = %s\n", uri->uri);
   if (uri->scheme != NULL) {
     printf("scheme    = %.*s\n", uri->schemeLen, uri->scheme);
@@ -261,7 +268,7 @@ ABC_URI parse(char* uri) {
   } else {
     result.valid = !((result.path[0] == '/') && (result.path[1] == '/'));
   }
-  printUri(&result);
+  ABC_URI_print(&result);
   return result;
 }
 
