@@ -6,7 +6,7 @@
 #endif
 
 #define ABC_FIFO_IMPL
-#include "ABC_fifo.h"
+#include "../ABC_fifo.h"
 
 // Example program
 
