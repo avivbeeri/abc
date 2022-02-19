@@ -1,5 +1,5 @@
 /**
-  ABC_uri.c - v0.0.1
+  ABC_uri.c - v1.0.0 - GFDL License
   RFC3986 compliant URI parser
 
   Author: Aviv Beeri, 2022
@@ -22,10 +22,20 @@
   ---
 
   Version History:
-  v0.0.1 - Complete parsing implementation
+  v1.0.0 - Complete parsing implementation
 
   License:
 
+  Copyright (c) 2022 Aviv Beeri
+  Permission is granted to copy, distribute and/or modify this document
+  under the terms of the GNU Free Documentation License, Version 1.2
+  or any later version published by the Free Software Foundation;
+  with no Invariant Sections, no Front-Cover Texts, and no Back-Cover
+  Texts.  A copy of the license is included in the section entitled "GNU
+  Free Documentation License".
+
+  A copy of GFDL 2.0 can be found in the source repository, or
+  here: https://www.gnu.org/licenses/old-licenses/fdl-1.2.html
 
 */
 
@@ -79,36 +89,47 @@ struct ABC_URI_t {
   int valid;
 
   char* uri;
+  size_t uriIndex;
   size_t uriLen;
 
   char* scheme;
+  size_t schemeIndex;
   size_t schemeLen;
 
   char* authority;
+  size_t authorityIndex;
   size_t authorityLen;
 
   char* cred;
+  size_t credIndex;
   size_t credLen;
 
   char* user;
+  size_t userIndex;
   size_t userLen;
 
   char* pass;
+  size_t passIndex;
   size_t passLen;
 
   char* host;
+  size_t hostIndex;
   size_t hostLen;
 
   char* port;
+  size_t portIndex;
   size_t portLen;
 
   char* path;
+  size_t pathIndex;
   size_t pathLen;
 
   char* query;
+  size_t queryIndex;
   size_t queryLen;
 
   char* fragment;
+  size_t fragmentIndex;
   size_t fragmentLen;
 
 };
@@ -166,7 +187,7 @@ size_t ABC_indexOfN(char* str, char* substr, size_t len) {
   return c - str;
 }
 
-size_t countOf(char* url, char* str, size_t len) {
+size_t ABC_countOf(char* url, char* str, size_t len) {
   size_t index = 0;
   size_t count = 0;
   while (index < len) {
@@ -191,7 +212,7 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
   size_t strIndex = 0;
 
   index = ABC_indexOf(uri, "//");
-  if (index >= 0 && countOf(uri, ":", index) == 1) {
+  if (index >= 0 && ABC_countOf(uri, ":", index) == 1) {
     result->scheme = uri;
     result->schemeLen = index - 1;
     strIndex = index + 2;
@@ -207,7 +228,7 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
     }
 
     // check for credentials and port
-    if (countOf(result->authority, "@", result->authorityLen) > 0) {
+    if (ABC_countOf(result->authority, "@", result->authorityLen) > 0) {
       result->cred = result->authority;
       index = ABC_indexOf(str, "@");
       if (index == -1) {
@@ -242,9 +263,9 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
       if (index != -1) {
         result->hostLen = index;
       }
-    } else if (countOf(result->authority, ":", result->authorityLen) > 0 &&
-        countOf(result->authority, "[", result->authorityLen) == 0 &&
-        countOf(result->authority, "]", result->authorityLen) == 0) {
+    } else if (ABC_countOf(result->authority, ":", result->authorityLen) > 0 &&
+        ABC_countOf(result->authority, "[", result->authorityLen) == 0 &&
+        ABC_countOf(result->authority, "]", result->authorityLen) == 0) {
       str = result->authority;
       index = ABC_indexOfN(str, ":", result->authorityLen);
       if (index != -1) {
@@ -256,7 +277,7 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
         result->host = str;
         result->hostLen = result->authorityLen;
       }
-    } else if (countOf(result->authority, "[", result->authorityLen) > 0 &&
+    } else if (ABC_countOf(result->authority, "[", result->authorityLen) > 0 &&
         ABC_indexOfN(result->authority, "]:", result->authorityLen) != -1) {
       str = result->authority;
       index = ABC_indexOfN(str, "]", result->authorityLen);
@@ -311,6 +332,34 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
     result->pathLen = queryIndex;
   }
 
+  if (result->scheme != NULL) {
+    result->schemeIndex = result->scheme - result->uri;
+  }
+  if (result->authority != NULL) {
+    result->authorityIndex = result->authority - result->uri;
+  }
+  if (result->cred != NULL) {
+    result->credIndex = result->cred - result->uri;
+  }
+  if (result->user != NULL) {
+    result->userIndex = result->user - result->uri;
+  }
+  if (result->pass != NULL) {
+    result->passIndex = result->pass - result->uri;
+  }
+  if (result->host != NULL) {
+    result->hostIndex = result->host - result->uri;
+  }
+  if (result->path != NULL) {
+    result->pathIndex = result->path - result->uri;
+  }
+  if (result->query != NULL) {
+    result->queryIndex = result->query - result->uri;
+  }
+  if (result->fragment != NULL) {
+    result->fragmentIndex = result->fragment - result->uri;
+  }
+
   result->initialized = 1;
   result->valid = (result->scheme != NULL && result->path != NULL);
   if (result->authority != NULL) {
@@ -331,7 +380,7 @@ int ABC_URI_get_##field(ABC_URI* uri, char* buf, size_t len) { \
       return uri->field##Len + 1; \
     } else {  \
       size_t copyLen = (len - 1) > uri->field##Len ? uri->field##Len : len - 1; \
-      memcpy(buf, uri->field, copyLen); \
+      memcpy(buf, uri->uri + uri->field##Index, copyLen); \
       buf[copyLen] = '\0'; \
       return 1; \
     } \
