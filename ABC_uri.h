@@ -83,7 +83,18 @@ int ABC_URI_get_path(ABC_URI* uri, char* buf, int len);
 int ABC_URI_get_query(ABC_URI* uri, char* buf, int len);
 int ABC_URI_get_fragment(ABC_URI* uri, char* buf, int len);
 
-/* Raw struct - don't use this */
+// If the original text changed/moved, you can pass it in here
+int ABC_URI_getstr_uri(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_scheme(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_user(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_pass(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_host(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_path(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_query(ABC_URI* uri, char* str, char* buf, int len);
+int ABC_URI_getstr_fragment(ABC_URI* uri, char* str, char* buf, int len);
+
+
+/* Raw struct - don't use this directly */
 struct ABC_URI_t {
   int initialized;
   int valid;
@@ -381,6 +392,24 @@ int ABC_URI_get_##field(ABC_URI* uri, char* buf, int len) { \
     } else {  \
       int copyLen = (len - 1) > uri->field##Len ? uri->field##Len : len - 1; \
       memcpy(buf, uri->uri + uri->field##Index, copyLen); \
+      buf[copyLen] = '\0'; \
+      memset(buf + copyLen, 0, (len - copyLen) > 0 ? len - copyLen : 1); \
+      return 1; \
+    } \
+  } \
+  return 0; \
+} \
+\
+int ABC_URI_getstr_##field(ABC_URI* uri, char* str, char* buf, int len) { \
+  if (uri->initialized != 1) { \
+    return -1; \
+  } \
+  if (uri->field != NULL) { \
+    if (buf == NULL) { \
+      return uri->field##Len + 1; \
+    } else {  \
+      int copyLen = (len - 1) > uri->field##Len ? uri->field##Len : len - 1; \
+      memcpy(buf, str + uri->field##Index, copyLen); \
       buf[copyLen] = '\0'; \
       memset(buf + copyLen, 0, (len - copyLen) > 0 ? len - copyLen : 1); \
       return 1; \

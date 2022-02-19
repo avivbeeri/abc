@@ -47,10 +47,12 @@ int main() {
   if (ABC_URI_get_uri(&result, newBuf, copySize) > 0) {
     printf("%s\n", newBuf);
   }
-  free(newBuf);
-  if (ABC_URI_get_scheme(&result, buf, len) > 0) {
+
+  if (ABC_URI_getstr_scheme(&result, newBuf, buf, len) > 0) {
     printf("%s\n", buf);
   }
+
+  free(newBuf);
   if (ABC_URI_get_user(&result, buf, len) > 0) {
     printf("%s\n", buf);
   }
