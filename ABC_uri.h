@@ -74,14 +74,14 @@ void ABC_URI_print(ABC_URI* uri);
  * If "buf" and "len" are NULL, it returns the length required to store the component string.
  * otherwise returns 1.
  */
-int ABC_URI_get_uri(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_scheme(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_user(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_pass(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_host(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_path(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_query(ABC_URI* uri, char* buf, size_t len);
-int ABC_URI_get_fragment(ABC_URI* uri, char* buf, size_t len);
+int ABC_URI_get_uri(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_scheme(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_user(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_pass(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_host(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_path(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_query(ABC_URI* uri, char* buf, int len);
+int ABC_URI_get_fragment(ABC_URI* uri, char* buf, int len);
 
 /* Raw struct - don't use this */
 struct ABC_URI_t {
@@ -89,48 +89,48 @@ struct ABC_URI_t {
   int valid;
 
   char* uri;
-  size_t uriIndex;
-  size_t uriLen;
+  int uriIndex;
+  int uriLen;
 
   char* scheme;
-  size_t schemeIndex;
-  size_t schemeLen;
+  int schemeIndex;
+  int schemeLen;
 
   char* authority;
-  size_t authorityIndex;
-  size_t authorityLen;
+  int authorityIndex;
+  int authorityLen;
 
   char* cred;
-  size_t credIndex;
-  size_t credLen;
+  int credIndex;
+  int credLen;
 
   char* user;
-  size_t userIndex;
-  size_t userLen;
+  int userIndex;
+  int userLen;
 
   char* pass;
-  size_t passIndex;
-  size_t passLen;
+  int passIndex;
+  int passLen;
 
   char* host;
-  size_t hostIndex;
-  size_t hostLen;
+  int hostIndex;
+  int hostLen;
 
   char* port;
-  size_t portIndex;
-  size_t portLen;
+  int portIndex;
+  int portLen;
 
   char* path;
-  size_t pathIndex;
-  size_t pathLen;
+  int pathIndex;
+  int pathLen;
 
   char* query;
-  size_t queryIndex;
-  size_t queryLen;
+  int queryIndex;
+  int queryLen;
 
   char* fragment;
-  size_t fragmentIndex;
-  size_t fragmentLen;
+  int fragmentIndex;
+  int fragmentLen;
 
 };
 
@@ -169,27 +169,27 @@ void ABC_URI_print(ABC_URI* uri) {
   printf("\n");
 }
 
-size_t ABC_indexOf(char* str, char* substr) {
+int ABC_indexOf(char* str, char* substr) {
   char* c = strstr(str, substr);
   if (c == NULL) {
     return -1;
   }
   return c - str;
 }
-size_t ABC_indexOfN(char* str, char* substr, size_t len) {
+int ABC_indexOfN(char* str, char* substr, int len) {
   char* c = strstr(str, substr);
   if (c == NULL) {
     return -1;
   }
-  if (c - str > len) {
+  if ((long int)(c - str) > len) {
     return -1;
   }
   return c - str;
 }
 
-size_t ABC_countOf(char* url, char* str, size_t len) {
-  size_t index = 0;
-  size_t count = 0;
+int ABC_countOf(char* url, char* str, int len) {
+  int index = 0;
+  int count = 0;
   while (index < len) {
     if (url[index] == '\0') {
       return -1;
@@ -208,8 +208,8 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
   result->uri = uri;
   result->uriLen = strlen(uri);
 
-  size_t index = 0;
-  size_t strIndex = 0;
+  int index = 0;
+  int strIndex = 0;
 
   index = ABC_indexOf(uri, "//");
   if (index >= 0 && ABC_countOf(uri, ":", index) == 1) {
@@ -305,9 +305,9 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
   result->path = str;
   result->pathLen = result->uriLen - (str - uri);
 
-  size_t queryIndex = ABC_indexOfN(result->path, "?", result->pathLen);
-  size_t fragmentIndex = ABC_indexOfN(result->path, "#", result->pathLen);
-    if (queryIndex != -1 && fragmentIndex == -1) {
+  int queryIndex = ABC_indexOfN(result->path, "?", result->pathLen);
+  int fragmentIndex = ABC_indexOfN(result->path, "#", result->pathLen);
+  if (queryIndex != -1 && fragmentIndex == -1) {
 
     result->query = result->path + queryIndex + 1;
     result->queryLen = result->pathLen - queryIndex - 1;
@@ -371,7 +371,7 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
 }
 
 #define ABC_URI_GETTER(field) \
-int ABC_URI_get_##field(ABC_URI* uri, char* buf, size_t len) { \
+int ABC_URI_get_##field(ABC_URI* uri, char* buf, int len) { \
   if (uri->initialized != 1) { \
     return -1; \
   } \
@@ -379,15 +379,15 @@ int ABC_URI_get_##field(ABC_URI* uri, char* buf, size_t len) { \
     if (buf == NULL) { \
       return uri->field##Len + 1; \
     } else {  \
-      size_t copyLen = (len - 1) > uri->field##Len ? uri->field##Len : len - 1; \
+      int copyLen = (len - 1) > uri->field##Len ? uri->field##Len : len - 1; \
       memcpy(buf, uri->uri + uri->field##Index, copyLen); \
       buf[copyLen] = '\0'; \
+      memset(buf + copyLen, 0, (len - copyLen) > 0 ? len - copyLen : 1); \
       return 1; \
     } \
   } \
   return 0; \
 }
-    // memset(buf + copyLen, 0, (len - copyLen) > 0 ? len - uri->field##Len : 1); \
 
 ABC_URI_GETTER(uri)
 ABC_URI_GETTER(scheme)

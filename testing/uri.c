@@ -35,7 +35,7 @@ int main() {
   ABC_URI_print(&result);
   ABC_URI_parse(&result, "https://bob:pass@example.com/place");
   ABC_URI_print(&result);
-  ABC_URI_parse(&result, "http://example.com/?a=1&b=2+2&c=3&c=4&d=\%65\%6e\%63\%6F\%64\%65\%64");
+  ABC_URI_parse(&result, "http://example.com/?a=1&b=2+2&c=3&c=4&d=%%65%%6e%%63%%6F%%64%%65%%64");
   ABC_URI_print(&result);
 
   size_t len = 7;
