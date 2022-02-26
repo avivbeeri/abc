@@ -299,6 +299,9 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
         }
       } else {
         result->authorityLen = result->uriLen - result->authorityIndex;
+        result->path = result->authority + result->authorityLen;
+        result->pathLen = 0;
+        result->fragmentIndex = result->path - uri;
       }
     } else {
       // Otherwise everything from here is the path
@@ -398,6 +401,9 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
       result->hostLen = len;
     }
   }
+
+  result->valid = result->valid && result->scheme != NULL && result->path != NULL;
+  result->valid = result->valid && (result->host == NULL || result->hostLen > 0);
 
   return result->valid;
 }
