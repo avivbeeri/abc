@@ -1,5 +1,5 @@
 /**
-  ABC_uri.c - v1.0.0 - GFDL License
+  ABC_uri.c - v1.0.0 -
   RFC3986 compliant URI parser
 
   Author: Aviv Beeri, 2022
@@ -27,15 +27,6 @@
   License:
 
   Copyright (c) 2022 Aviv Beeri
-  Permission is granted to copy, distribute and/or modify this document
-  under the terms of the GNU Free Documentation License, Version 1.2
-  or any later version published by the Free Software Foundation;
-  with no Invariant Sections, no Front-Cover Texts, and no Back-Cover
-  Texts.  A copy of the license is included in the section entitled "GNU
-  Free Documentation License".
-
-  A copy of GFDL 2.0 can be found in the source repository, or
-  here: https://www.gnu.org/licenses/old-licenses/fdl-1.2.html
 
 */
 
@@ -147,11 +138,22 @@ struct ABC_URI_t {
 
 #ifdef ABC_URI_IMPLEMENTATION
 
+#define ABC_true 1
+#define ABC_false 0
+
 void ABC_URI_print(ABC_URI* uri) {
   printf("URI       = %s\n", uri->uri);
   if (uri->scheme != NULL) {
     printf("scheme    = %.*s\n", uri->schemeLen, uri->scheme);
   }
+  /*
+  if (uri->authority != NULL) {
+    printf("authority = %.*s\n", uri->authorityLen, uri->authority);
+  }
+  if (uri->cred != NULL) {
+    printf("cred      = %.*s\n", uri->credLen, uri->cred);
+  }
+  */
   if (uri->user != NULL) {
     printf("user      = %.*s\n", uri->userLen, uri->user);
   }
@@ -178,6 +180,19 @@ void ABC_URI_print(ABC_URI* uri) {
     printf("URI is invalid.\n");
   }
   printf("\n");
+}
+
+int ABC_min(int a, int b) {
+  if (a == -1 && b == -1) {
+    return -1;
+  }
+  if (b == -1) {
+    return a;
+  }
+  if (a == -1) {
+    return b;
+  }
+  return (a < b) ? a : b;
 }
 
 int ABC_indexOf(char* str, char* substr) {
@@ -218,166 +233,172 @@ int ABC_URI_parse(ABC_URI* result, char* uri) {
   char* str = uri;
   result->uri = uri;
   result->uriLen = strlen(uri);
+  result->valid = ABC_true;
 
   int index = 0;
-  int strIndex = 0;
 
-  index = ABC_indexOf(uri, "//");
-  if (index >= 0 && ABC_countOf(uri, ":", index) == 1) {
+  index = ABC_indexOf(str, ":");
+  if (index != -1) {
     result->scheme = uri;
-    result->schemeLen = index - 1;
-    strIndex = index + 2;
+    result->schemeLen = index;
+    result->schemeIndex = 0;
 
-    str = uri + strIndex;
-    // parse the domain
-    index = ABC_indexOf(str, "/");
-    result->authority = str;
-    if (index == -1) {
-      result->authorityLen = result->uriLen - strIndex;
-    } else {
-      result->authorityLen = index;
-    }
+    str = result->scheme + index + 1;
 
-    // check for credentials and port
-    if (ABC_countOf(result->authority, "@", result->authorityLen) > 0) {
-      result->cred = result->authority;
-      index = ABC_indexOf(str, "@");
-      if (index == -1) {
-        result->credLen = result->uriLen - strIndex;
+    // is the authority present? '//'
+    if (str[0] == '/' && str[1] == '/') {
+      str += 2;
+      result->authority = str;
+      result->authorityIndex = str - uri;
+      int slashIndex = ABC_indexOf(str, "/");
+      int queryIndex = ABC_indexOf(str, "?");
+      int fragmentIndex = ABC_indexOf(str, "#");
+
+      index = ABC_min(ABC_min(slashIndex, queryIndex), fragmentIndex);
+      if (index != -1) {
+        str += index;
+        if (index == slashIndex) {
+          result->authorityLen = slashIndex;
+          int end = 0;
+          if (queryIndex != -1 && ABC_min(queryIndex, fragmentIndex) == queryIndex) {
+            end = queryIndex - slashIndex;
+          } else if (fragmentIndex != 1) {
+            end = fragmentIndex - slashIndex;
+          } else {
+            end = result->uriLen - (result->authorityIndex + result->authorityLen);
+          }
+
+          if (slashIndex > 0) {
+            result->path = str;
+            result->pathIndex = str - uri;
+            result->pathLen = end;
+            str = result->path + end;
+          }
+        } else {
+          result->authorityLen = index;
+        }
+
+        if (queryIndex != -1 || fragmentIndex != -1) {
+          str++;
+          if (queryIndex != -1 && ABC_min(queryIndex, fragmentIndex) == queryIndex) {
+            result->query = str;
+            result->queryIndex = str - uri;
+            index = ABC_indexOf(str, "#");
+            if (index != -1) {
+              result->queryLen = index;
+              str += index + 1;
+            } else {
+              result->queryLen = result->uriLen - result->queryIndex;
+            }
+          }
+          if (fragmentIndex != -1) {
+            result->fragment = str;
+            result->fragmentIndex = str - uri;
+            result->fragmentLen = result->uriLen - result->fragmentIndex;
+          }
+        }
       } else {
-        result->credLen = index;
+        result->authorityLen = result->uriLen - result->authorityIndex;
       }
+    } else {
+      // Otherwise everything from here is the path
+      result->path = str;
+      result->pathIndex = str - uri;
+
+      int queryIndex = ABC_indexOf(str, "?");
+      int fragmentIndex = ABC_indexOf(str, "#");
+      int end;
+      if (queryIndex != -1 && ABC_min(queryIndex, fragmentIndex) == queryIndex) {
+        end = queryIndex;
+      } else if (fragmentIndex != 1) {
+        end = fragmentIndex;
+      } else {
+        end = result->uriLen - (result->pathIndex);
+      }
+      result->pathLen = end;
+
+      if (queryIndex != -1 || fragmentIndex != -1) {
+        str += end + 1;
+        if (queryIndex != -1 && ABC_min(queryIndex, fragmentIndex) == queryIndex) {
+          result->query = str;
+          result->queryIndex = str - uri;
+          index = ABC_indexOf(str, "#");
+          if (index != -1) {
+            result->queryLen = index;
+            str += index + 1;
+          } else {
+            result->queryLen = result->uriLen - result->queryIndex;
+          }
+        }
+        if (fragmentIndex != -1) {
+          result->fragment = str;
+          result->fragmentIndex = str - uri;
+          result->fragmentLen = result->uriLen - result->fragmentIndex;
+        }
+      }
+    }
+  } else {
+    result->authority = uri;
+    result->authorityIndex = 0;
+    result->authorityLen = 0;
+  }
+
+  if (result->authority != NULL) {
+    // authority = [ userinfo "@" ] host [ ":" port ]
+    str = result->authority;
+    int len = result->authorityLen;
+    index = ABC_indexOfN(str, "@", len);
+    if (index != -1) {
+      // process user info
+      result->cred = str;
+      result->credLen = index;
+      result->credIndex = result->authorityIndex;
+      // adjust
+      str += index + 1;
+      len -= index + 1;
+
+      // extract credentials
       result->user = result->cred;
-      result->userLen = result->credLen;
-      index = ABC_indexOfN(result->user, ".", result->credLen);
+      result->userIndex = result->credIndex;
+      index = ABC_indexOfN(result->user, ":", result->credLen);
       if (index != -1) {
         result->userLen = index;
         result->pass = result->user + index + 1;
+        result->passIndex = result->pass - uri;
         result->passLen = result->credLen - (index + 1);
       } else {
-        index = ABC_indexOfN(result->user, ":", result->credLen);
-        if (index != -1) {
-          result->userLen = index;
-          result->pass = result->user + index + 1;
-          result->passLen = result->credLen - (index + 1);
-        }
+        result->userLen = result->credLen;
       }
-      str = result->cred + result->credLen + 1;
-      index = ABC_indexOf(str, "/");
-      result->host = str;
-      if (index == -1) {
-        result->hostLen = result->authorityLen - result->credLen;
-      } else {
-        result->hostLen = index;
-      }
-      index = ABC_indexOfN(str, ":", result->hostLen);
-      if (index != -1) {
-        result->hostLen = index;
-      }
-    } else if (ABC_countOf(result->authority, ":", result->authorityLen) > 0 &&
-        ABC_countOf(result->authority, "[", result->authorityLen) == 0 &&
-        ABC_countOf(result->authority, "]", result->authorityLen) == 0) {
-      str = result->authority;
-      index = ABC_indexOfN(str, ":", result->authorityLen);
-      if (index != -1) {
-        result->host = str;
-        result->hostLen = index;
-        result->port = result->host + (index + 1);
-        result->portLen = result->authorityLen -  result->hostLen - 1;
-      } else {
-        result->host = str;
-        result->hostLen = result->authorityLen;
-      }
-    } else if (ABC_countOf(result->authority, "[", result->authorityLen) > 0 &&
-        ABC_indexOfN(result->authority, "]:", result->authorityLen) != -1) {
-      str = result->authority;
-      index = ABC_indexOfN(str, "]", result->authorityLen);
-      result->host = str + 1;
-      result->hostLen = index;
-      result->port = str + index + 1;
-      result->portLen = result->authorityLen - (index + 1);
-      // ipV6 with host
+    }
+
+    // Disambiguate between the host, port and ipv6+ hosts.
+    result->host = str;
+    result->hostIndex = str - uri;
+    int hostStartIndex = ABC_indexOfN(str, "[", len);
+    int hostEndIndex = ABC_indexOfN(str, "]", len);
+    if (hostStartIndex != -1 && hostEndIndex != -1) {
+      // str += hostEndIndex - 1;
+    } else if (hostStartIndex != hostEndIndex) {
+      result->valid = ABC_false;
     } else {
-      // no credentials
-      result->host = result->authority;
-      result->hostLen = result->authorityLen;
+      hostEndIndex = 0;
     }
-    str = result->authority + result->authorityLen;
-  } else {
-    index = ABC_indexOf(uri, ":");
-    str = uri;
+
+    index = ABC_indexOfN(str + hostEndIndex, ":", len - hostEndIndex);
     if (index != -1) {
-      result->scheme = uri;
-      result->schemeLen = index;
-      str = result->scheme + index + 1;
+      index += hostEndIndex;
+      result->hostLen = index;
+
+      str += index + 1;
+      result->port = str;
+      result->portLen = len - index - 1;
+      result->portIndex = str - uri;
+      // port
+    } else {
+      result->hostLen = len;
     }
   }
-  // parse the path;
-  result->path = str;
-  result->pathLen = result->uriLen - (str - uri);
 
-  int queryIndex = ABC_indexOfN(result->path, "?", result->pathLen);
-  int fragmentIndex = ABC_indexOfN(result->path, "#", result->pathLen);
-  if (queryIndex != -1 && fragmentIndex == -1) {
-
-    result->query = result->path + queryIndex + 1;
-    result->queryLen = result->pathLen - queryIndex - 1;
-
-    result->pathLen = queryIndex;
-  } else if (queryIndex == -1 && fragmentIndex != -1) {
-
-    result->fragment = result->path + fragmentIndex + 1;
-    result->fragmentLen = result->pathLen - fragmentIndex - 1;
-
-    result->pathLen = fragmentIndex;
-  } else if (queryIndex != -1 &&
-      fragmentIndex != -1 &&
-      queryIndex < fragmentIndex) {
-
-    result->query = result->path + queryIndex + 1;
-    result->queryLen = fragmentIndex - queryIndex - 1;
-
-    result->fragment = result->query + result->queryLen + 1;
-    result->fragmentLen = result->pathLen - fragmentIndex - 1;
-
-    result->pathLen = queryIndex;
-  }
-
-  if (result->scheme != NULL) {
-    result->schemeIndex = result->scheme - result->uri;
-  }
-  if (result->authority != NULL) {
-    result->authorityIndex = result->authority - result->uri;
-  }
-  if (result->cred != NULL) {
-    result->credIndex = result->cred - result->uri;
-  }
-  if (result->user != NULL) {
-    result->userIndex = result->user - result->uri;
-  }
-  if (result->pass != NULL) {
-    result->passIndex = result->pass - result->uri;
-  }
-  if (result->host != NULL) {
-    result->hostIndex = result->host - result->uri;
-  }
-  if (result->path != NULL) {
-    result->pathIndex = result->path - result->uri;
-  }
-  if (result->query != NULL) {
-    result->queryIndex = result->query - result->uri;
-  }
-  if (result->fragment != NULL) {
-    result->fragmentIndex = result->fragment - result->uri;
-  }
-
-  result->initialized = 1;
-  result->valid = (result->scheme != NULL && result->path != NULL);
-  if (result->authority != NULL) {
-    result->valid = (result->pathLen == 0 || result->path[0] == '/');
-  } else {
-    result->valid = !((result->path[0] == '/') && (result->path[1] == '/'));
-  }
   return result->valid;
 }
 
@@ -428,6 +449,8 @@ ABC_URI_GETTER(query)
 ABC_URI_GETTER(fragment)
 
 #undef ABC_URI_GETTER
+#undef ABC_true
+#undef ABC_false
 
 #endif
 

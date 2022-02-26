@@ -2,6 +2,7 @@
 test.dSYM/**/*
 out.txt
 uri-test
+uri-ref
 test
 lib
 include
